@@ -43,7 +43,7 @@ fn format_date(date: u64) -> String {
     local_date_time.format("%H:%M:%S %d/%m/%Y").to_string()
 }
 
-fn format_time(time: u64) -> String {
+fn format_time(time: i64) -> String {
     let seconds = time % 60;
     let minutes = (time / 60) % 60;
     let hours = (time / 3600) % 24;
@@ -74,13 +74,10 @@ impl Account {
         next_wednesday(self.date)
     }
 
-    fn get_remaining_time(&self) -> u64 {
+    fn get_remaining_time(&self) -> i64 {
         let now = chrono::Local::now().timestamp() as u64;
         let next = self.get_next_date();
-        if now > next {
-            return 0;
-        }
-        next - now
+        (next as i64) - (now as i64)
     }
 
     fn to_binary(&self) -> Vec<u8> {
@@ -195,7 +192,7 @@ impl eframe::App for CasesNotifier {
                     if remaining_time > 0 {
                         ui.colored_label(Color32::from_rgb(255, 50, 75), format!("Remaining: {}", format_time(remaining_time)));
                     } else {
-                        ui.colored_label(Color32::from_rgb(50, 255, 75), "Ready!");
+                        ui.colored_label(Color32::from_rgb(50, 255, 75), format!("Ready for: {}", format_time(-remaining_time)));
                     }
 
                     ui.horizontal(|ui| {
