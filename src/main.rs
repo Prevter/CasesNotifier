@@ -1,8 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, Local, TimeZone, Datelike, NaiveDateTime};
 use eframe::egui;
-use egui::menu;
+use egui::{menu, Color32};
 use std::io::{Read, Write};
 
 fn load_icon(buffer: &[u8]) -> eframe::IconData {
@@ -71,7 +71,7 @@ impl Account {
     }
 
     fn get_next_date(&self) -> u64 {
-        self.date + 604_800
+        next_wednesday(self.date)
     }
 
     fn get_remaining_time(&self) -> u64 {
@@ -142,6 +142,18 @@ fn load_accounts() -> Vec<Account> {
     accounts
 }
 
+fn next_wednesday(timestamp: u64) -> u64 {
+    let datetime = NaiveDateTime::from_timestamp_opt(timestamp as i64, 0).unwrap();
+
+    let mut next_wednesday = datetime.date().succ_opt().unwrap();
+    while next_wednesday.weekday() != chrono::Weekday::Wed {
+        next_wednesday = next_wednesday.succ_opt().unwrap();
+    }
+
+    let next_wednesday_utc = NaiveDateTime::new(next_wednesday, chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap());
+    next_wednesday_utc.timestamp() as u64
+}
+
 impl eframe::App for CasesNotifier {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -157,6 +169,14 @@ impl eframe::App for CasesNotifier {
                     self.editing_date = format_date(self.accounts[self.account_to_edit].get_date());
                     save_accounts(&self.accounts);
                 }
+
+                let mut count = 0;
+                for account in &self.accounts {
+                    if account.get_remaining_time() <= 0 {
+                        count += 1;
+                    }
+                }
+                ui.label(format!("Accounts ready: {}/{}", count, self.accounts.len()));
             });
 
             // scrollable area
@@ -173,9 +193,9 @@ impl eframe::App for CasesNotifier {
                     ));
                     let remaining_time = account.get_remaining_time();
                     if remaining_time > 0 {
-                        ui.label(format!("Remaining: {}", format_time(remaining_time)));
+                        ui.colored_label(Color32::from_rgb(255, 50, 75), format!("Remaining: {}", format_time(remaining_time)));
                     } else {
-                        ui.label("Ready!");
+                        ui.colored_label(Color32::from_rgb(50, 255, 75), "Ready!");
                     }
 
                     ui.horizontal(|ui| {
